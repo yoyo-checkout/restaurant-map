@@ -73,6 +73,7 @@ export default {
   },
   async mounted() {
     await this.initMap();
+    await this.nearbySearch();
   },
   methods: {
     toggleSearch() {
@@ -92,6 +93,47 @@ export default {
           terrain 顯示基於地形信息的物理地圖。
         */
         mapTypeId: 'roadmap',
+      });
+    },
+    nearbySearch() {
+      const request = {
+        location: this.location,
+        radius: '1000',
+        type: ['restaurant'],
+        keyword: this.searchKeyword,
+      };
+
+      const service = new google.maps.places.PlacesService(this.map);
+      service.nearbySearch(request, (res, status) => {
+        if (status == google.maps.places.PlacesServiceStatus.OK) {
+          console.log(res);
+          this.restaurants = [ ...res ];
+
+          this.drawMarkers();
+        } else {
+          console.log('error req');
+        }
+      });
+    },
+    clearMarkers() {
+      for (let i = 0; i < this.markers.length; i++) {
+        this.markers[i].setMap(null);
+      }
+
+      this.markers = [];
+    },
+    drawMarkers() {
+      this.clearMarkers();
+
+      this.restaurants.forEach(restaurant => {
+        const latLng = new google.maps.LatLng(restaurant.geometry.location.lat(), restaurant.geometry.location.lng());
+
+        const marker = new google.maps.Marker({
+          position: latLng,
+          map: this.map,
+        });
+
+        this.markers.push(marker);
       });
     },
   },
