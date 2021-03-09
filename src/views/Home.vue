@@ -428,15 +428,12 @@ export default {
     initMap() {
       // 建立地圖
       this.map = new google.maps.Map(document.getElementById('map'), {
-        center: this.location, // 中心點座標
+        center: this.location,
         zoom: 16, // 1-20，數字愈大，地圖愈細：1是世界地圖，20就會到街道
-        /*
-          roadmap 顯示默認道路地圖視圖。
-          satellite 顯示 Google 地球衛星圖像。
-          hybrid 顯示正常和衛星視圖的混合。
-          terrain 顯示基於地形信息的物理地圖。
-        */
         mapTypeId: 'roadmap',
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: false,
       });
 
       // 建立資訊視窗
