@@ -80,13 +80,23 @@
           <li
             v-for="restaurant in restaurants"
             :key="restaurant.place_id"
-            class="tt mb-4 px-4 py-2 bg-transparent hover:bg-green-400 border border-green-400 text-green-400 hover:text-white rounded-md cursor-pointer"
+            class="tt mb-4 px-4 py-2 bg-transparent hover:bg-green-600 border border-green-600 text-green-400 hover:text-white rounded-md cursor-pointer"
             @click="infoWindowHandler(restaurant)"
           >
             <div>{{ restaurant.name }}</div>
+
             <div class="flex justify-between">
               <span>評分: {{ restaurant.rating }}</span>
               <span>{{ calcDistance(location, getDestinationLocation(restaurant.geometry.location)) }} 公里</span>
+            </div>
+
+            <div class="mt-2 text-right">
+              <button
+                class="px-3 py-2 focus:outline-none bg-green-700 hover:bg-green-900 text-white rounded-md"
+                @click.stop="drawDirection(restaurant.geometry.location)"
+              >
+                規劃路線
+              </button>
             </div>
           </li>
         </ul>
@@ -104,6 +114,8 @@ export default {
     return {
       map: null,
       infowindow: null,
+      directionsService: null,
+      directionLayer: null,
       isShow: true,
       searchKeyword: '',
       sort: {
@@ -198,6 +210,12 @@ export default {
       this.infowindow = new google.maps.InfoWindow({
         disableAutoPan: true,
       });
+
+      // 載入路線服務與圖層
+      this.directionsService = new google.maps.DirectionsService();
+      this.directionLayer = new google.maps.DirectionsRenderer();
+      // 放置路線圖層
+      this.directionLayer.setMap(this.map);
     },
     nearbySearch() {
       const request = {
@@ -244,6 +262,8 @@ export default {
       });
     },
     infoWindowHandler(info, marker) {
+      this.clearDirection();
+
       let target = marker;
 
       if (!target) {
@@ -259,8 +279,28 @@ export default {
       `);
       this.infowindow.open(this.map, target);
     },
+    clearDirection() {
+      this.directionLayer.set('directions', null);
+    },
+    drawDirection(destination) {
+      // 路線相關設定
+      const request = {
+        origin: this.location,
+        destination: this.getDestinationLocation(destination),
+        travelMode: 'DRIVING',
+      };
+
+      // 繪製路線
+      this.directionsService.route(request, (res, status) => {
+        if (status === google.maps.DirectionsStatus.OK) {
+          this.directionLayer.setDirections(res);
+        } else {
+          console.log('error req');
+        }
+      });
+    },
     getDestinationLocation(location) {
-      // return object for calc distance
+      // return object for calc distance or direction
       return {
         lat: location.lat(),
         lng: location.lng(),
