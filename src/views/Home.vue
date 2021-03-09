@@ -95,12 +95,14 @@
 </template>
 
 <script>
+import _ from 'lodash';
+
 export default {
   name: 'Home',
   data() {
     return {
       map: null,
-      isShow: false,
+      isShow: true,
       searchKeyword: '',
       sort: {
         distance: '',
@@ -118,7 +120,8 @@ export default {
   },
   async mounted() {
     await this.initMap();
-    await this.nearbySearch();
+
+    google.maps.event.addListener(this.map, 'bounds_changed', _.debounce(this.nearbySearch, 1000));
   },
   methods: {
     sortRestaurantsBy(sortType) {
@@ -168,8 +171,8 @@ export default {
     },
     nearbySearch() {
       const request = {
-        location: this.location,
-        radius: '1000',
+        location: this.map.getCenter(),
+        radius: '10000',
         type: ['restaurant'],
         keyword: this.searchKeyword,
       };
