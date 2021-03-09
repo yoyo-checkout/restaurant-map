@@ -80,7 +80,8 @@
           <li
             v-for="restaurant in restaurants"
             :key="restaurant.place_id"
-            class="mb-4 px-4 py-2 bg-transparent hover:bg-green-400 border border-green-400 text-green-400 hover:text-white rounded-md cursor-pointer"
+            class="tt mb-4 px-4 py-2 bg-transparent hover:bg-green-400 border border-green-400 text-green-400 hover:text-white rounded-md cursor-pointer"
+            @click="infoWindowHandler(restaurant)"
           >
             <div>{{ restaurant.name }}</div>
             <div class="flex justify-between">
@@ -102,6 +103,7 @@ export default {
   data() {
     return {
       map: null,
+      infowindow: null,
       isShow: true,
       searchKeyword: '',
       sort: {
@@ -168,11 +170,16 @@ export default {
         */
         mapTypeId: 'roadmap',
       });
+
+      // 建立資訊視窗
+      this.infowindow = new google.maps.InfoWindow({
+        disableAutoPan: true,
+      });
     },
     nearbySearch() {
       const request = {
         location: this.map.getCenter(),
-        radius: '10000',
+        radius: '1000',
         type: ['restaurant'],
         keyword: this.searchKeyword,
       };
@@ -207,8 +214,27 @@ export default {
           map: this.map,
         });
 
+        // open infowindow while clicking marker
+        marker.addListener('click', () => this.infoWindowHandler(restaurant, marker));
+
         this.markers.push(marker);
       });
+    },
+    infoWindowHandler(info, marker) {
+      let target = marker;
+
+      if (!target) {
+        target = this.markers.find(ele => {
+          return ele.position.lat() === info.geometry.location.lat() && ele.position.lng() === info.geometry.location.lng();
+        });
+      }
+
+      this.infowindow.setContent(`
+        <h1 class="font-bold text-base">${info.name}</h1>
+        <p>${info.vicinity}</p>
+        <a class="text-blue-900 hover:underline" href="https://www.google.com.tw/maps/search/${info.vicinity}" target="_blank">在地圖上檢視</a>
+      `);
+      this.infowindow.open(this.map, target);
     },
     getDestinationLocation(location) {
       // return object for calc distance
