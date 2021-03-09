@@ -80,7 +80,7 @@
           <li
             v-for="restaurant in restaurants"
             :key="restaurant.place_id"
-            class="tt mb-4 px-4 py-2 bg-transparent hover:bg-green-600 border border-green-600 text-green-400 hover:text-white rounded-md cursor-pointer"
+            class="mb-4 px-4 py-2 bg-transparent hover:bg-green-600 border border-green-600 text-green-400 hover:text-white rounded-md cursor-pointer"
             @click="infoWindowHandler(restaurant)"
           >
             <div>{{ restaurant.name }}</div>
@@ -100,6 +100,114 @@
             </div>
           </li>
         </ul>
+      </div>
+    </div>
+
+    <div class="control-panel my-10 px-5">
+
+      <h3 class="mb-1 font-bold text-xl">換地圖樣式</h3>
+      <div class="mb-3">
+        <button
+          :class="[
+            mapType === 'roadmap' ?
+              'bg-green-400 hover:bg-green-600 border-green-400 text-white' :
+              'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
+          ]"
+          class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
+          @click="changeMapType('roadmap')"
+        >
+          道路圖
+        </button>
+
+        <button
+          :class="[
+            mapType === 'satellite' ?
+              'bg-green-400 hover:bg-green-600 border-green-400 text-white' :
+              'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
+          ]"
+          class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
+          @click="changeMapType('satellite')"
+        >
+          衛星圖
+        </button>
+
+        <button
+          :class="[
+            mapType === 'hybrid' ?
+              'bg-green-400 hover:bg-green-600 border-green-400 text-white' :
+              'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
+          ]"
+          class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
+          @click="changeMapType('hybrid')"
+        >
+          正常+衛星圖
+        </button>
+
+        <button
+          :class="[
+            mapType === 'terrain' ?
+              'bg-green-400 hover:bg-green-600 border-green-400 text-white' :
+              'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
+          ]"
+          class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
+          @click="changeMapType('terrain')"
+        >
+          地形圖
+        </button>
+      </div>
+
+      <h3 class="mb-1 font-bold text-xl">隱藏商家</h3>
+      <div class="mb-3">
+        <button
+          :class="[
+            !hideBusiness ?
+              'bg-green-600 border-green-600 text-white' :
+              'bg-green-400 border-green-400 text-white'
+          ]"
+          class="px-4 py-2 focus:outline-none border rounded-l-md"
+          @click="toggleHideBusiness(false)"
+        >
+          顯示
+        </button>
+
+        <button
+          :class="[
+            hideBusiness ?
+              'bg-green-600 border-green-600 text-white' :
+              'bg-green-400 border-green-400 text-white'
+          ]"
+          class="px-4 py-2 focus:outline-none border rounded-r-md"
+          @click="toggleHideBusiness(true)"
+        >
+          隱藏
+        </button>
+      </div>
+
+      <h3 class="mb-1 font-bold text-xl">夜間模式</h3>
+      <div class="mb-3">
+        <button
+          :class="[
+            themeMode === 'night' ?
+              'bg-green-600 border-green-600 text-white' :
+              'bg-green-400 border-green-400 text-white'
+          ]"
+          class="px-4 py-2 focus:outline-none border rounded-l-md"
+          @click="toggleThemeMode('night')"
+        >
+          開啟
+        </button>
+
+        <button
+          :class="[
+            themeMode === 'day' ?
+              'bg-green-600 border-green-600 text-white' :
+              'bg-green-400 border-green-400 text-white'
+          ]"
+          class="px-4 py-2 focus:outline-none border rounded-r-md"
+          @click="toggleThemeMode('day')"
+        >
+          關閉
+        </button>
       </div>
     </div>
   </div>
@@ -130,6 +238,98 @@ export default {
         lat: 25.0374865, // 經度
         lng: 121.5647688 // 緯度
       },
+
+      mapType: 'roadmap',
+      hideBusiness: false,
+      hideStyles: [
+        {
+          featureType: 'poi.business',
+          stylers: [{
+            visibility: 'off',
+          }],
+        },
+      ],
+      themeMode: 'day',
+      nightModeStyles: [
+        { elementType: 'geometry', stylers: [{color: '#242f3e'}] },
+        { elementType: 'labels.text.stroke', stylers: [{color: '#242f3e'}] },
+        { elementType: 'labels.text.fill', stylers: [{color: '#746855'}] },
+        {
+          featureType: 'administrative.locality',
+          elementType: 'labels.text.fill',
+          stylers: [{color: '#d59563'}]
+        },
+        {
+          featureType: 'poi',
+          elementType: 'labels.text.fill',
+          stylers: [{color: '#d59563'}]
+        },
+        {
+          featureType: 'poi.park',
+          elementType: 'geometry',
+          stylers: [{color: '#263c3f'}]
+        },
+        {
+          featureType: 'poi.park',
+          elementType: 'labels.text.fill',
+          stylers: [{color: '#6b9a76'}]
+        },
+        {
+          featureType: 'road',
+          elementType: 'geometry',
+          stylers: [{color: '#38414e'}]
+        },
+        {
+          featureType: 'road',
+          elementType: 'geometry.stroke',
+          stylers: [{color: '#212a37'}]
+        },
+        {
+          featureType: 'road',
+          elementType: 'labels.text.fill',
+          stylers: [{color: '#9ca5b3'}]
+        },
+        {
+          featureType: 'road.highway',
+          elementType: 'geometry',
+          stylers: [{color: '#746855'}]
+        },
+        {
+          featureType: 'road.highway',
+          elementType: 'geometry.stroke',
+          stylers: [{color: '#1f2835'}]
+        },
+        {
+          featureType: 'road.highway',
+          elementType: 'labels.text.fill',
+          stylers: [{color: '#f3d19c'}]
+        },
+        {
+          featureType: 'transit',
+          elementType: 'geometry',
+          stylers: [{color: '#2f3948'}]
+        },
+        {
+          featureType: 'transit.station',
+          elementType: 'labels.text.fill',
+          stylers: [{color: '#d59563'}]
+        },
+        {
+          featureType: 'water',
+          elementType: 'geometry',
+          stylers: [{color: '#17263c'}]
+        },
+        {
+          featureType: 'water',
+          elementType: 'labels.text.fill',
+          stylers: [{color: '#515c6d'}]
+        },
+        {
+          featureType: 'water',
+          elementType: 'labels.text.stroke',
+          stylers: [{color: '#17263c'}]
+        }
+      ],
     };
   },
   async mounted() {
@@ -139,6 +339,39 @@ export default {
     google.maps.event.addListener(this.map, 'bounds_changed', _.debounce(this.nearbySearch, 1000));
   },
   methods: {
+    changeMapType(newType) {
+      if (newType === this.mapType) return;
+
+      this.mapType = newType;
+      this.map.setOptions({
+        mapTypeId: newType,
+      });
+    },
+    toggleHideBusiness(newBool) {
+      if (newBool === this.hideBusiness) return;
+
+      this.hideBusiness = newBool;
+
+      const hideStyles = newBool ? this.hideStyles : [];
+      const themeStyles = this.themeMode === 'night' ? this.nightModeStyles : [];
+
+      this.map.setOptions({
+        styles: [ ...hideStyles, ...themeStyles],
+      });
+    },
+    toggleThemeMode(newMode) {
+      if (newMode === this.themeMode) return;
+
+      this.themeMode = newMode;
+
+      const hideStyles = this.hideBusiness ? this.hideStyles : [];
+      const themeStyles = newMode === 'night' ? this.nightModeStyles : [];
+
+      this.map.setOptions({
+        styles: [ ...hideStyles, ...themeStyles],
+      });
+    },
+
     initLocation() {
       if (navigator.geolocation) {
         return new Promise(resolve => {
@@ -342,6 +575,8 @@ export default {
 .map {
   &-wrapper {
     padding-top: 56.25%;
+    min-height: 500px;
+    max-height: 700px;
   }
 
   &-container {
