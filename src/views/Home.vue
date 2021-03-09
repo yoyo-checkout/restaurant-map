@@ -38,14 +38,55 @@
           </button>
         </div>
 
+        <!-- search area -->
+        <div class="flex items-center mb-5">
+          <button
+            class="flex items-center mr-2 px-3 py-2 focus:outline-none bg-green-400 hover:bg-green-600 text-white rounded-md"
+            @click="sortRestaurantsBy('distance')"
+          >
+            <span class="mr-1">距離</span>
+            <span v-show="sort.distance === 'asc'" class="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+              </svg>
+            </span>
+            <span v-show="sort.distance === 'desc'" class="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </button>
+
+          <button
+            class="flex items-center px-3 py-2 focus:outline-none bg-green-400 hover:bg-green-600 text-white rounded-md"
+            @click="sortRestaurantsBy('rating')"
+          >
+            <span class="mr-1">評分</span>
+            <span v-show="sort.rating === 'asc'" class="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+              </svg>
+            </span>
+            <span v-show="sort.rating === 'desc'" class="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </button>
+        </div>
+
         <!-- suggestions -->
         <ul class="flex-grow overflow-y-scroll">
           <li
             v-for="restaurant in restaurants"
-            :key="restaurant.id"
+            :key="restaurant.place_id"
             class="mb-4 px-4 py-2 bg-transparent hover:bg-green-400 border border-green-400 text-green-400 hover:text-white rounded-md cursor-pointer"
           >
-            {{ restaurant.name }}
+            <div>{{ restaurant.name }}</div>
+            <div class="flex justify-between">
+              <span>評分: {{ restaurant.rating }}</span>
+              <span>{{ calcDistance(location, getDestinationLocation(restaurant.geometry.location)) }} 公里</span>
+            </div>
           </li>
         </ul>
       </div>
@@ -61,6 +102,10 @@ export default {
       map: null,
       isShow: false,
       searchKeyword: '',
+      sort: {
+        distance: '',
+        rating: '',
+      },
       restaurants: [],
       markers: [],
 
@@ -76,11 +121,37 @@ export default {
     await this.nearbySearch();
   },
   methods: {
+    sortRestaurantsBy(sortType) {
+      const currentOrder = this.sort[sortType];
+      const newOrder = currentOrder === '' ? 'asc'
+        : currentOrder === 'asc' ? 'desc' : '';
+
+      // reset other sorting type
+      for (let type in this.sort) {
+        if (type === sortType) {
+          this.sort[type] = newOrder;
+        } else {
+          this.sort[type] = '';
+        }
+      }
+
+      if (!newOrder) return;
+
+      this.restaurants.sort((a, b) => {
+        if (sortType === 'distance') {
+          const aDistance = this.calcDistance(this.location, this.getDestinationLocation(a.geometry.location));
+          const bDistance = this.calcDistance(this.location, this.getDestinationLocation(b.geometry.location));
+
+          return newOrder === 'asc' ? aDistance - bDistance : bDistance - aDistance;
+        }
+
+        return newOrder === 'asc' ? a[sortType] - b[sortType] : b[sortType] - a[sortType];
+      });
+    },
     toggleSearch() {
       this.isShow = !this.isShow;
     },
 
-    // init google map
     initMap() {
       // 建立地圖
       this.map = new google.maps.Map(document.getElementById('map'), {
@@ -103,8 +174,8 @@ export default {
         keyword: this.searchKeyword,
       };
 
-      const service = new google.maps.places.PlacesService(this.map);
-      service.nearbySearch(request, (res, status) => {
+      const placeService = new google.maps.places.PlacesService(this.map);
+      placeService.nearbySearch(request, (res, status) => {
         if (status == google.maps.places.PlacesServiceStatus.OK) {
           console.log(res);
           this.restaurants = [ ...res ];
@@ -135,6 +206,41 @@ export default {
 
         this.markers.push(marker);
       });
+    },
+    getDestinationLocation(location) {
+      // return object for calc distance
+      return {
+        lat: location.lat(),
+        lng: location.lng(),
+      };
+    },
+    calcDistance(origin, destination) {
+      // avoid to calc math formula error
+      if ((origin.lat == destination.lat) && (origin.lng == destination.lng)) {
+        return 0;
+      }
+
+      const EARTH_RADIUS = 6378.137;
+
+      const radLat1 = Math.PI * origin.lat / 180;
+      const radLat2 = Math.PI * destination.lat / 180;
+      const latDiff = radLat1 - radLat2;
+
+      const radLng1 = Math.PI * origin.lng / 180;
+      const radLng2 = Math.PI * destination.lng / 180;
+      const lngDiff = radLng1 - radLng2;
+
+      let s = 2 * Math.asin(
+        Math.sqrt(
+          Math.pow(Math.sin(latDiff/2), 2) +
+          Math.cos(radLat1) * Math.cos(radLat2) * Math.pow(Math.sin(lngDiff/2), 2)
+        )
+      );
+
+      s *= EARTH_RADIUS;
+      s = Math.round(s * 10) / 10;
+
+      return s;
     },
   },
 }
