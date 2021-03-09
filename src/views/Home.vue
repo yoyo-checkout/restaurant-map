@@ -87,7 +87,7 @@
 
             <div class="flex justify-between">
               <span>評分: {{ restaurant.rating }}</span>
-              <span>{{ calcDistance(location, getDestinationLocation(restaurant.geometry.location)) }} 公里</span>
+              <span>{{ calcDistance(location, getLocationObject(restaurant.geometry.location)) }} 公里</span>
             </div>
 
             <div class="mt-2 text-right">
@@ -215,6 +215,7 @@
 
 <script>
 import _ from 'lodash';
+import '@/library/gMap';
 
 export default {
   name: 'Home',
@@ -334,11 +335,103 @@ export default {
   },
   async mounted() {
     await this.initLocation();
-    await this.initMap();
-
-    google.maps.event.addListener(this.map, 'bounds_changed', _.debounce(this.nearbySearch, 1000));
+    this.initMap();
   },
   methods: {
+    initLocation() {
+      if (navigator.geolocation) {
+        return new Promise(resolve => {
+          navigator.geolocation.getCurrentPosition(
+            pos => {
+              this.location = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              };
+
+              resolve();
+            },
+            err => {
+              // 使用者不允許時使用預設位置
+              resolve();
+            }
+          );
+        });
+      }
+
+      return;
+    },
+    initMap() {
+      // 建立地圖
+      this.map = gMap.map
+        .Create(document.getElementById('map'), {
+          center: this.location,
+          zoom: 16, // 1-20，數字愈大，地圖愈細：1是世界地圖，20就會到街道
+          mapTypeId: 'roadmap',
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+        })
+        .addListener('bounds_changed', _.debounce(this.nearbySearch, 1000));
+
+      // 建立資訊視窗
+      this.infowindow = gMap.infoWindow.Create({
+        disableAutoPan: true,
+      });
+
+      // 載入路線服務與圖層
+      this.directionsService = gMap.directionsService.Create();
+      this.directionLayer = gMap.directionsRenderer
+        .Create()
+        .setMap(this.map.getInstance());
+    },
+    nearbySearch() {
+      const request = {
+        location: this.map.getCenter(),
+        radius: '1000',
+        type: ['restaurant'],
+        keyword: this.searchKeyword,
+      };
+
+      gMap.placesService
+        .Create(this.map.getInstance())
+        .nearbySearch(request, (res, status) => {
+          if (status == google.maps.places.PlacesServiceStatus.OK) {
+            console.log(res);
+            this.restaurants = [ ...res ];
+
+            this.drawMarkers();
+          } else {
+            console.log('error req');
+          }
+        });
+    },
+    sortRestaurantsBy(sortType) {
+      const currentOrder = this.sort[sortType];
+      const newOrder = currentOrder === '' ? 'asc'
+        : currentOrder === 'asc' ? 'desc' : '';
+
+      // 重置其他排序類別
+      for (let type in this.sort) {
+        if (type === sortType) {
+          this.sort[type] = newOrder;
+        } else {
+          this.sort[type] = '';
+        }
+      }
+
+      if (!newOrder) return;
+
+      this.restaurants.sort((a, b) => {
+        if (sortType === 'distance') {
+          const aDistance = this.calcDistance(this.location, this.getLocationObject(a.geometry.location));
+          const bDistance = this.calcDistance(this.location, this.getLocationObject(b.geometry.location));
+
+          return newOrder === 'asc' ? aDistance - bDistance : bDistance - aDistance;
+        }
+
+        return newOrder === 'asc' ? a[sortType] - b[sortType] : b[sortType] - a[sortType];
+      });
+    },
     changeMapType(newType) {
       if (newType === this.mapType) return;
 
@@ -371,101 +464,8 @@ export default {
         styles: [ ...hideStyles, ...themeStyles],
       });
     },
-
-    initLocation() {
-      if (navigator.geolocation) {
-        return new Promise(resolve => {
-          navigator.geolocation.getCurrentPosition(
-            pos => {
-              this.location = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-              };
-
-              resolve();
-            },
-            err => {
-              // user deny permission or an another err
-              resolve();
-            }
-          );
-        });
-      }
-
-      return;
-    },
-    sortRestaurantsBy(sortType) {
-      const currentOrder = this.sort[sortType];
-      const newOrder = currentOrder === '' ? 'asc'
-        : currentOrder === 'asc' ? 'desc' : '';
-
-      // reset other sorting type
-      for (let type in this.sort) {
-        if (type === sortType) {
-          this.sort[type] = newOrder;
-        } else {
-          this.sort[type] = '';
-        }
-      }
-
-      if (!newOrder) return;
-
-      this.restaurants.sort((a, b) => {
-        if (sortType === 'distance') {
-          const aDistance = this.calcDistance(this.location, this.getDestinationLocation(a.geometry.location));
-          const bDistance = this.calcDistance(this.location, this.getDestinationLocation(b.geometry.location));
-
-          return newOrder === 'asc' ? aDistance - bDistance : bDistance - aDistance;
-        }
-
-        return newOrder === 'asc' ? a[sortType] - b[sortType] : b[sortType] - a[sortType];
-      });
-    },
     toggleSearch() {
       this.isShow = !this.isShow;
-    },
-
-    initMap() {
-      // 建立地圖
-      this.map = new google.maps.Map(document.getElementById('map'), {
-        center: this.location,
-        zoom: 16, // 1-20，數字愈大，地圖愈細：1是世界地圖，20就會到街道
-        mapTypeId: 'roadmap',
-        streetViewControl: false,
-        mapTypeControl: false,
-        fullscreenControl: false,
-      });
-
-      // 建立資訊視窗
-      this.infowindow = new google.maps.InfoWindow({
-        disableAutoPan: true,
-      });
-
-      // 載入路線服務與圖層
-      this.directionsService = new google.maps.DirectionsService();
-      this.directionLayer = new google.maps.DirectionsRenderer();
-      // 放置路線圖層
-      this.directionLayer.setMap(this.map);
-    },
-    nearbySearch() {
-      const request = {
-        location: this.map.getCenter(),
-        radius: '1000',
-        type: ['restaurant'],
-        keyword: this.searchKeyword,
-      };
-
-      const placeService = new google.maps.places.PlacesService(this.map);
-      placeService.nearbySearch(request, (res, status) => {
-        if (status == google.maps.places.PlacesServiceStatus.OK) {
-          console.log(res);
-          this.restaurants = [ ...res ];
-
-          this.drawMarkers();
-        } else {
-          console.log('error req');
-        }
-      });
     },
     clearMarkers() {
       for (let i = 0; i < this.markers.length; i++) {
@@ -478,45 +478,40 @@ export default {
       this.clearMarkers();
 
       this.restaurants.forEach(restaurant => {
-        const latLng = new google.maps.LatLng(restaurant.geometry.location.lat(), restaurant.geometry.location.lng());
-
-        const marker = new google.maps.Marker({
-          position: latLng,
-          map: this.map,
-        });
-
-        // open infowindow while clicking marker
-        marker.addListener('click', () => this.infoWindowHandler(restaurant, marker));
+        const marker = gMap.marker
+          .Create({
+            position: this.getLocationObject(restaurant.geometry.location),
+            map: this.map.getInstance(),
+          })
+          .addListener('click', () => this.infoWindowHandler(restaurant));
 
         this.markers.push(marker);
       });
     },
-    infoWindowHandler(info, marker) {
+    infoWindowHandler(info) {
       this.clearDirection();
 
-      let target = marker;
+      const target = this.markers.find(ele => {
+        return ele.getInstance().position.lat() === info.geometry.location.lat() &&
+          ele.getInstance().position.lng() === info.geometry.location.lng();
+      });
 
-      if (!target) {
-        target = this.markers.find(ele => {
-          return ele.position.lat() === info.geometry.location.lat() && ele.position.lng() === info.geometry.location.lng();
-        });
-      }
-
-      this.infowindow.setContent(`
-        <h1 class="font-bold text-base">${info.name}</h1>
-        <p>${info.vicinity}</p>
-        <a class="text-blue-900 hover:underline" href="https://www.google.com.tw/maps/search/${info.vicinity}" target="_blank">在地圖上檢視</a>
-      `);
-      this.infowindow.open(this.map, target);
+      this.infowindow
+        .setContent(`
+          <h1 class="font-bold text-base">${info.name}</h1>
+          <p>${info.vicinity}</p>
+          <a class="text-blue-900 hover:underline" href="https://www.google.com.tw/maps/search/${info.vicinity}" target="_blank">在地圖上檢視</a>
+        `)
+        .open(this.map.getInstance(), target.getInstance());
     },
     clearDirection() {
-      this.directionLayer.set('directions', null);
+      this.directionLayer.clearDirections();
     },
     drawDirection(destination) {
       // 路線相關設定
       const request = {
         origin: this.location,
-        destination: this.getDestinationLocation(destination),
+        destination: this.getLocationObject(destination),
         travelMode: 'DRIVING',
       };
 
@@ -529,40 +524,14 @@ export default {
         }
       });
     },
-    getDestinationLocation(location) {
-      // return object for calc distance or direction
+    getLocationObject(location) {
       return {
         lat: location.lat(),
         lng: location.lng(),
       };
     },
     calcDistance(origin, destination) {
-      // avoid to calc math formula error
-      if ((origin.lat == destination.lat) && (origin.lng == destination.lng)) {
-        return 0;
-      }
-
-      const EARTH_RADIUS = 6378.137;
-
-      const radLat1 = Math.PI * origin.lat / 180;
-      const radLat2 = Math.PI * destination.lat / 180;
-      const latDiff = radLat1 - radLat2;
-
-      const radLng1 = Math.PI * origin.lng / 180;
-      const radLng2 = Math.PI * destination.lng / 180;
-      const lngDiff = radLng1 - radLng2;
-
-      let s = 2 * Math.asin(
-        Math.sqrt(
-          Math.pow(Math.sin(latDiff/2), 2) +
-          Math.cos(radLat1) * Math.cos(radLat2) * Math.pow(Math.sin(lngDiff/2), 2)
-        )
-      );
-
-      s *= EARTH_RADIUS;
-      s = Math.round(s * 10) / 10;
-
-      return s;
+      return gMap.calcDistance(origin, destination);
     },
   },
 }
