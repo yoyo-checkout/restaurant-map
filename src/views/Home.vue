@@ -121,11 +121,34 @@ export default {
     };
   },
   async mounted() {
+    await this.initLocation();
     await this.initMap();
 
     google.maps.event.addListener(this.map, 'bounds_changed', _.debounce(this.nearbySearch, 1000));
   },
   methods: {
+    initLocation() {
+      if (navigator.geolocation) {
+        return new Promise(resolve => {
+          navigator.geolocation.getCurrentPosition(
+            pos => {
+              this.location = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              };
+
+              resolve();
+            },
+            err => {
+              // user deny permission or an another err
+              resolve();
+            }
+          );
+        });
+      }
+
+      return;
+    },
     sortRestaurantsBy(sortType) {
       const currentOrder = this.sort[sortType];
       const newOrder = currentOrder === '' ? 'asc'
