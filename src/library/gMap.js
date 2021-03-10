@@ -10,6 +10,27 @@
     placesService: {},
     marker: {},
 
+    setLocation(defaultLocation) {
+      if (navigator.geolocation) {
+        return new Promise(resolve => {
+          navigator.geolocation.getCurrentPosition(
+            pos => {
+              resolve({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              });
+            },
+            err => {
+              // 使用者不允許時使用預設位置
+              resolve(defaultLocation);
+            }
+          );
+        });
+      }
+
+      // 使用預設位置
+      return defaultLocation;
+    },
     calcDistance(ori, dest) {
       // 避免後續數學公式計算錯誤
       if ((ori.lat == dest.lat) && (ori.lng == dest.lng)) {
@@ -54,6 +75,94 @@
     const self = this;
 
     self.instance = new google.maps.Map(selector, options);
+    self.isHideBusiness = false;
+    self.themeMode = 'day'; // 'day' || 'night'
+    self.hideBusinessStyles = [{
+      featureType: 'poi.business',
+      stylers: [{
+        visibility: 'off',
+      }],
+    }];
+    self.nightModeStyles = [ // https://developers.google.com/maps/documentation/javascript/examples/style-array
+      { elementType: 'geometry', stylers: [{color: '#242f3e'}] },
+      { elementType: 'labels.text.stroke', stylers: [{color: '#242f3e'}] },
+      { elementType: 'labels.text.fill', stylers: [{color: '#746855'}] },
+      {
+        featureType: 'administrative.locality',
+        elementType: 'labels.text.fill',
+        stylers: [{color: '#d59563'}]
+      },
+      {
+        featureType: 'poi',
+        elementType: 'labels.text.fill',
+        stylers: [{color: '#d59563'}]
+      },
+      {
+        featureType: 'poi.park',
+        elementType: 'geometry',
+        stylers: [{color: '#263c3f'}]
+      },
+      {
+        featureType: 'poi.park',
+        elementType: 'labels.text.fill',
+        stylers: [{color: '#6b9a76'}]
+      },
+      {
+        featureType: 'road',
+        elementType: 'geometry',
+        stylers: [{color: '#38414e'}]
+      },
+      {
+        featureType: 'road',
+        elementType: 'geometry.stroke',
+        stylers: [{color: '#212a37'}]
+      },
+      {
+        featureType: 'road',
+        elementType: 'labels.text.fill',
+        stylers: [{color: '#9ca5b3'}]
+      },
+      {
+        featureType: 'road.highway',
+        elementType: 'geometry',
+        stylers: [{color: '#746855'}]
+      },
+      {
+        featureType: 'road.highway',
+        elementType: 'geometry.stroke',
+        stylers: [{color: '#1f2835'}]
+      },
+      {
+        featureType: 'road.highway',
+        elementType: 'labels.text.fill',
+        stylers: [{color: '#f3d19c'}]
+      },
+      {
+        featureType: 'transit',
+        elementType: 'geometry',
+        stylers: [{color: '#2f3948'}]
+      },
+      {
+        featureType: 'transit.station',
+        elementType: 'labels.text.fill',
+        stylers: [{color: '#d59563'}]
+      },
+      {
+        featureType: 'water',
+        elementType: 'geometry',
+        stylers: [{color: '#17263c'}]
+      },
+      {
+        featureType: 'water',
+        elementType: 'labels.text.fill',
+        stylers: [{color: '#515c6d'}]
+      },
+      {
+        featureType: 'water',
+        elementType: 'labels.text.stroke',
+        stylers: [{color: '#17263c'}]
+      }
+    ];
 
   };
 
@@ -83,6 +192,44 @@
     setOptions(options) {
 
       this.instance.setOptions(options);
+
+      return this;
+
+    },
+
+    setType(type) {
+
+      this.instance.setOptions({
+        mapTypeId: type,
+      });
+
+      return this;
+
+    },
+
+    setThemeMode(mode) {
+
+      const hideBusinessStyles = this.isHideBusiness ? this.hideBusinessStyles : [];
+      const nightModeStyles = mode === 'night' ? this.nightModeStyles : [];
+
+      this.themeMode = mode;
+      this.instance.setOptions({
+        styles: [ ...hideBusinessStyles, ...nightModeStyles],
+      });
+
+      return this;
+
+    },
+
+    hideBusiness(bool) {
+
+      const hideBusinessStyles = bool ? this.hideBusinessStyles : [];
+      const nightModeStyles = this.themeMode === 'night' ? this.nightModeStyles : [];
+
+      this.isHideBusiness = bool;
+      this.instance.setOptions({
+        styles: [ ...hideBusinessStyles, ...nightModeStyles],
+      });
 
       return this;
 
@@ -282,6 +429,12 @@
     getInstance() {
 
       return this.instance;
+
+    },
+
+    getPosition() {
+
+      return this.instance.position;
 
     },
 

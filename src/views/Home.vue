@@ -1,23 +1,23 @@
 <template>
   <div class="home">
-    <h1 class="text-center">餐館搜尋系統</h1>
+    <h1 class="my-8 font-bold text-lg text-center">餐館搜尋系統</h1>
 
     <div class="map-wrapper relative">
       <div id="map" class="map-container absolute top-0 left-0 w-full h-full shadow"></div>
 
       <div
-        :class="{ 'active': isShow }"
+        :class="{ 'active': isSidebarActive }"
         class="map-search transition-all duration-700 flex flex-col absolute top-0 bottom-0 p-5 bg-gray-800 bg-opacity-75"
       >
         <!-- toggle button -->
         <button
           class="absolute top-0 -right-10 w-10 h-10 focus:outline-none bg-gray-300 rounded-r-md shadow"
-          @click="toggleSearch"
+          @click="toggleSearchSidebar"
         >
-          <svg v-show="!isShow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg v-show="!isSidebarActive" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
-          <svg v-show="isShow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg v-show="isSidebarActive" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -81,7 +81,7 @@
             v-for="restaurant in restaurants"
             :key="restaurant.place_id"
             class="mb-4 px-4 py-2 bg-transparent hover:bg-green-600 border border-green-600 text-green-400 hover:text-white rounded-md cursor-pointer"
-            @click="infoWindowHandler(restaurant)"
+            @click="openInfoWindow(restaurant)"
           >
             <div>{{ restaurant.name }}</div>
 
@@ -114,7 +114,7 @@
               'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
           ]"
           class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
-          @click="changeMapType('roadmap')"
+          @click="setMapType('roadmap')"
         >
           道路圖
         </button>
@@ -126,7 +126,7 @@
               'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
           ]"
           class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
-          @click="changeMapType('satellite')"
+          @click="setMapType('satellite')"
         >
           衛星圖
         </button>
@@ -138,7 +138,7 @@
               'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
           ]"
           class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
-          @click="changeMapType('hybrid')"
+          @click="setMapType('hybrid')"
         >
           正常+衛星圖
         </button>
@@ -150,7 +150,7 @@
               'bg-transparent hover:bg-green-600 border-green-600 text-green-400 hover:text-white'
           ]"
           class="px-4 py-2 mr-2 focus:outline-none border rounded-md"
-          @click="changeMapType('terrain')"
+          @click="setMapType('terrain')"
         >
           地形圖
         </button>
@@ -160,24 +160,24 @@
       <div class="mb-3">
         <button
           :class="[
-            !hideBusiness ?
+            !isHideBusiness ?
               'bg-green-600 border-green-600 text-white' :
               'bg-green-400 border-green-400 text-white'
           ]"
           class="px-4 py-2 focus:outline-none border rounded-l-md"
-          @click="toggleHideBusiness(false)"
+          @click="hideBusiness(false)"
         >
           顯示
         </button>
 
         <button
           :class="[
-            hideBusiness ?
+            isHideBusiness ?
               'bg-green-600 border-green-600 text-white' :
               'bg-green-400 border-green-400 text-white'
           ]"
           class="px-4 py-2 focus:outline-none border rounded-r-md"
-          @click="toggleHideBusiness(true)"
+          @click="hideBusiness(true)"
         >
           隱藏
         </button>
@@ -192,7 +192,7 @@
               'bg-green-400 border-green-400 text-white'
           ]"
           class="px-4 py-2 focus:outline-none border rounded-l-md"
-          @click="toggleThemeMode('night')"
+          @click="setThemeMode('night')"
         >
           開啟
         </button>
@@ -204,7 +204,7 @@
               'bg-green-400 border-green-400 text-white'
           ]"
           class="px-4 py-2 focus:outline-none border rounded-r-md"
-          @click="toggleThemeMode('day')"
+          @click="setThemeMode('day')"
         >
           關閉
         </button>
@@ -221,147 +221,49 @@ export default {
   name: 'Home',
   data() {
     return {
+      // gMap instances
       map: null,
-      infowindow: null,
+      infoWindow: null,
       directionsService: null,
-      directionLayer: null,
-      isShow: true,
+      directionsRenderer: null,
+
+      // search sidebar
+      isSidebarActive: true,
       searchKeyword: '',
       sort: {
         distance: '',
         rating: '',
       },
-      restaurants: [],
-      markers: [],
 
-      // 預設顯示的地點：台北市政府親子劇場
-      location: {
+      // map settings
+      location: { // 預設顯示的地點：台北市政府親子劇場
         lat: 25.0374865, // 經度
         lng: 121.5647688 // 緯度
       },
-
+      isHideBusiness: false,
       mapType: 'roadmap',
-      hideBusiness: false,
-      hideStyles: [
-        {
-          featureType: 'poi.business',
-          stylers: [{
-            visibility: 'off',
-          }],
-        },
-      ],
       themeMode: 'day',
-      nightModeStyles: [
-        { elementType: 'geometry', stylers: [{color: '#242f3e'}] },
-        { elementType: 'labels.text.stroke', stylers: [{color: '#242f3e'}] },
-        { elementType: 'labels.text.fill', stylers: [{color: '#746855'}] },
-        {
-          featureType: 'administrative.locality',
-          elementType: 'labels.text.fill',
-          stylers: [{color: '#d59563'}]
-        },
-        {
-          featureType: 'poi',
-          elementType: 'labels.text.fill',
-          stylers: [{color: '#d59563'}]
-        },
-        {
-          featureType: 'poi.park',
-          elementType: 'geometry',
-          stylers: [{color: '#263c3f'}]
-        },
-        {
-          featureType: 'poi.park',
-          elementType: 'labels.text.fill',
-          stylers: [{color: '#6b9a76'}]
-        },
-        {
-          featureType: 'road',
-          elementType: 'geometry',
-          stylers: [{color: '#38414e'}]
-        },
-        {
-          featureType: 'road',
-          elementType: 'geometry.stroke',
-          stylers: [{color: '#212a37'}]
-        },
-        {
-          featureType: 'road',
-          elementType: 'labels.text.fill',
-          stylers: [{color: '#9ca5b3'}]
-        },
-        {
-          featureType: 'road.highway',
-          elementType: 'geometry',
-          stylers: [{color: '#746855'}]
-        },
-        {
-          featureType: 'road.highway',
-          elementType: 'geometry.stroke',
-          stylers: [{color: '#1f2835'}]
-        },
-        {
-          featureType: 'road.highway',
-          elementType: 'labels.text.fill',
-          stylers: [{color: '#f3d19c'}]
-        },
-        {
-          featureType: 'transit',
-          elementType: 'geometry',
-          stylers: [{color: '#2f3948'}]
-        },
-        {
-          featureType: 'transit.station',
-          elementType: 'labels.text.fill',
-          stylers: [{color: '#d59563'}]
-        },
-        {
-          featureType: 'water',
-          elementType: 'geometry',
-          stylers: [{color: '#17263c'}]
-        },
-        {
-          featureType: 'water',
-          elementType: 'labels.text.fill',
-          stylers: [{color: '#515c6d'}]
-        },
-        {
-          featureType: 'water',
-          elementType: 'labels.text.stroke',
-          stylers: [{color: '#17263c'}]
-        }
-      ],
+
+      // data
+      restaurants: [],
+      markers: [], // 暫存標記，清除標記用
     };
   },
-  async mounted() {
-    await this.initLocation();
-    this.initMap();
+  mounted() {
+    this.init();
   },
   methods: {
-    initLocation() {
-      if (navigator.geolocation) {
-        return new Promise(resolve => {
-          navigator.geolocation.getCurrentPosition(
-            pos => {
-              this.location = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-              };
-
-              resolve();
-            },
-            err => {
-              // 使用者不允許時使用預設位置
-              resolve();
-            }
-          );
-        });
-      }
-
-      return;
+    // init methods
+    async init() {
+      await this.initLocation(); // 初始化位置
+      await this.initMap(); // 建立地圖
+      this.initInfoWindow(); // 建立資訊視窗
+      this.initDirections(); // 載入路線服務與圖層
+    },
+    async initLocation() {
+      this.location = await gMap.setLocation(this.location);
     },
     initMap() {
-      // 建立地圖
       this.map = gMap.map
         .Create(document.getElementById('map'), {
           center: this.location,
@@ -372,22 +274,23 @@ export default {
           fullscreenControl: false,
         })
         .addListener('bounds_changed', _.debounce(this.nearbySearch, 1000));
-
-      // 建立資訊視窗
-      this.infowindow = gMap.infoWindow.Create({
+    },
+    initInfoWindow() {
+      this.infoWindow = gMap.infoWindow.Create({
         disableAutoPan: true,
       });
-
-      // 載入路線服務與圖層
+    },
+    initDirections() {
       this.directionsService = gMap.directionsService.Create();
-      this.directionLayer = gMap.directionsRenderer
+      this.directionsRenderer = gMap.directionsRenderer
         .Create()
         .setMap(this.map.getInstance());
     },
+
     nearbySearch() {
       const request = {
         location: this.map.getCenter(),
-        radius: '1000',
+        radius: '10000',
         type: ['restaurant'],
         keyword: this.searchKeyword,
       };
@@ -397,13 +300,74 @@ export default {
         .nearbySearch(request, (res, status) => {
           if (status == google.maps.places.PlacesServiceStatus.OK) {
             console.log(res);
-            this.restaurants = [ ...res ];
 
+            this.restaurants = [ ...res ];
             this.drawMarkers();
           } else {
             console.log('error req');
           }
         });
+    },
+    clearMarkers() {
+      for (let i = 0; i < this.markers.length; i++) {
+        this.markers[i].setMap(null);
+      }
+
+      this.markers = [];
+    },
+    drawMarkers() {
+      this.clearMarkers(); // 清除先前建立的標記
+
+      this.restaurants.forEach(restaurant => {
+        const marker = gMap.marker
+          .Create({
+            position: this.getLocationObject(restaurant.geometry.location),
+            map: this.map.getInstance(),
+          })
+          .addListener('click', () => this.openInfoWindow(restaurant));
+
+        this.markers.push(marker);
+      });
+    },
+    openInfoWindow(restaurant) {
+      this.clearDirections(); // 清除其他規劃路線
+
+      // 找到對應標記
+      const restaurantLocation = this.getLocationObject(restaurant.geometry.location);
+      const targetMarker = this.markers.find(marker => {
+        return marker.getPosition().lat() === restaurantLocation.lat &&
+          marker.getPosition().lng() === restaurantLocation.lng;
+      });
+
+      // 開啟資訊視窗
+      this.infoWindow
+        .setContent(`
+          <h1 class="font-bold text-base">${restaurant.name}</h1>
+          <p>${restaurant.vicinity}</p>
+          <a class="text-blue-900 hover:underline" href="https://www.google.com.tw/maps/search/${restaurant.vicinity}" target="_blank">
+            在地圖上檢視
+          </a>
+        `)
+        .open(this.map.getInstance(), targetMarker.getInstance());
+    },
+    clearDirections() {
+      this.directionsRenderer.clearDirections();
+    },
+    drawDirection(destination) {
+      const request = {
+        origin: this.location,
+        destination: this.getLocationObject(destination),
+        travelMode: 'DRIVING',
+      };
+
+      // 繪製路線
+      this.directionsService.route(request, (res, status) => {
+        if (status === google.maps.DirectionsStatus.OK) {
+          this.directionsRenderer.setDirections(res);
+        } else {
+          console.log('error req');
+        }
+      });
     },
     sortRestaurantsBy(sortType) {
       const currentOrder = this.sort[sortType];
@@ -432,97 +396,26 @@ export default {
         return newOrder === 'asc' ? a[sortType] - b[sortType] : b[sortType] - a[sortType];
       });
     },
-    changeMapType(newType) {
+    setMapType(newType) {
       if (newType === this.mapType) return;
 
       this.mapType = newType;
-      this.map.setOptions({
-        mapTypeId: newType,
-      });
+      this.map.setType(newType);
     },
-    toggleHideBusiness(newBool) {
-      if (newBool === this.hideBusiness) return;
-
-      this.hideBusiness = newBool;
-
-      const hideStyles = newBool ? this.hideStyles : [];
-      const themeStyles = this.themeMode === 'night' ? this.nightModeStyles : [];
-
-      this.map.setOptions({
-        styles: [ ...hideStyles, ...themeStyles],
-      });
-    },
-    toggleThemeMode(newMode) {
+    setThemeMode(newMode) {
       if (newMode === this.themeMode) return;
 
       this.themeMode = newMode;
-
-      const hideStyles = this.hideBusiness ? this.hideStyles : [];
-      const themeStyles = newMode === 'night' ? this.nightModeStyles : [];
-
-      this.map.setOptions({
-        styles: [ ...hideStyles, ...themeStyles],
-      });
+      this.map.setThemeMode(newMode);
     },
-    toggleSearch() {
-      this.isShow = !this.isShow;
+    hideBusiness(newBool) {
+      if (newBool === this.isHideBusiness) return;
+
+      this.isHideBusiness = newBool;
+      this.map.hideBusiness(newBool);
     },
-    clearMarkers() {
-      for (let i = 0; i < this.markers.length; i++) {
-        this.markers[i].setMap(null);
-      }
-
-      this.markers = [];
-    },
-    drawMarkers() {
-      this.clearMarkers();
-
-      this.restaurants.forEach(restaurant => {
-        const marker = gMap.marker
-          .Create({
-            position: this.getLocationObject(restaurant.geometry.location),
-            map: this.map.getInstance(),
-          })
-          .addListener('click', () => this.infoWindowHandler(restaurant));
-
-        this.markers.push(marker);
-      });
-    },
-    infoWindowHandler(info) {
-      this.clearDirection();
-
-      const target = this.markers.find(ele => {
-        return ele.getInstance().position.lat() === info.geometry.location.lat() &&
-          ele.getInstance().position.lng() === info.geometry.location.lng();
-      });
-
-      this.infowindow
-        .setContent(`
-          <h1 class="font-bold text-base">${info.name}</h1>
-          <p>${info.vicinity}</p>
-          <a class="text-blue-900 hover:underline" href="https://www.google.com.tw/maps/search/${info.vicinity}" target="_blank">在地圖上檢視</a>
-        `)
-        .open(this.map.getInstance(), target.getInstance());
-    },
-    clearDirection() {
-      this.directionLayer.clearDirections();
-    },
-    drawDirection(destination) {
-      // 路線相關設定
-      const request = {
-        origin: this.location,
-        destination: this.getLocationObject(destination),
-        travelMode: 'DRIVING',
-      };
-
-      // 繪製路線
-      this.directionsService.route(request, (res, status) => {
-        if (status === google.maps.DirectionsStatus.OK) {
-          this.directionLayer.setDirections(res);
-        } else {
-          console.log('error req');
-        }
-      });
+    toggleSearchSidebar() {
+      this.isSidebarActive = !this.isSidebarActive;
     },
     getLocationObject(location) {
       return {
