@@ -215,6 +215,7 @@
 
 <script>
 import _ from 'lodash';
+import { mapState, mapMutations } from 'vuex';
 import '@/library/gMap';
 
 export default {
@@ -243,16 +244,23 @@ export default {
       isHideBusiness: false,
       mapType: 'roadmap',
       themeMode: 'day',
-
-      // data
-      restaurants: [],
-      markers: [], // 暫存標記，清除標記用
     };
+  },
+  computed: {
+    ...mapState('map', {
+      restaurants: state => state.restaurants,
+      markers: state => state.markers,
+    }),
   },
   mounted() {
     this.init();
   },
   methods: {
+    ...mapMutations('map', [
+      'SET_RESTAURANTS',
+      'SET_MARKERS',
+    ]),
+
     // init methods
     async init() {
       await this.initLocation(); // 初始化位置
@@ -267,7 +275,7 @@ export default {
       this.map = gMap.map
         .Create(document.getElementById('map'), {
           center: this.location,
-          zoom: 16, // 1-20，數字愈大，地圖愈細：1是世界地圖，20就會到街道
+          zoom: 14, // 1-20，數字愈大，地圖愈細：1是世界地圖，20就會到街道
           mapTypeId: 'roadmap',
           streetViewControl: false,
           mapTypeControl: false,
@@ -290,7 +298,7 @@ export default {
     nearbySearch() {
       const request = {
         location: this.map.getCenter(),
-        radius: '10000',
+        radius: '5000',
         type: ['restaurant'],
         keyword: this.searchKeyword,
       };
@@ -301,7 +309,7 @@ export default {
           if (status == google.maps.places.PlacesServiceStatus.OK) {
             console.log(res);
 
-            this.restaurants = [ ...res ];
+            this.SET_RESTAURANTS(res)
             this.drawMarkers();
           } else {
             console.log('error req');
@@ -313,11 +321,12 @@ export default {
         this.markers[i].setMap(null);
       }
 
-      this.markers = [];
+      this.SET_MARKERS([]);
     },
     drawMarkers() {
       this.clearMarkers(); // 清除先前建立的標記
 
+      const newMarkers = [];
       this.restaurants.forEach(restaurant => {
         const marker = gMap.marker
           .Create({
@@ -326,8 +335,9 @@ export default {
           })
           .addListener('click', () => this.openInfoWindow(restaurant));
 
-        this.markers.push(marker);
+        newMarkers.push(marker);
       });
+      this.SET_MARKERS(newMarkers);
     },
     openInfoWindow(restaurant) {
       this.clearDirections(); // 清除其他規劃路線
@@ -385,7 +395,7 @@ export default {
 
       if (!newOrder) return;
 
-      this.restaurants.sort((a, b) => {
+      const sorted = [ ...this.restaurants ].sort((a, b) => {
         if (sortType === 'distance') {
           const aDistance = this.calcDistance(this.location, this.getLocationObject(a.geometry.location));
           const bDistance = this.calcDistance(this.location, this.getLocationObject(b.geometry.location));
@@ -395,6 +405,7 @@ export default {
 
         return newOrder === 'asc' ? a[sortType] - b[sortType] : b[sortType] - a[sortType];
       });
+      this.SET_RESTAURANTS(sorted);
     },
     setMapType(newType) {
       if (newType === this.mapType) return;
